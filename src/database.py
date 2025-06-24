@@ -97,10 +97,14 @@ class FaceDatabase:
                 cursor = conn.cursor()
                 now = datetime.now().isoformat()
                 
+                # Ensure embedding is numpy array and serializable
+                if isinstance(embedding, np.ndarray):
+                    embedding = embedding.tolist()
+                
                 cursor.execute('''
                 INSERT INTO faces (first_seen, last_seen, embedding, metadata)
                 VALUES (?, ?, ?, ?)
-                ''', (now, now, json.dumps(embedding.tolist()), json.dumps(metadata or {})))
+                ''', (now, now, json.dumps(embedding), json.dumps(metadata or {})))
                 
                 face_id = cursor.lastrowid
                 conn.commit()
@@ -154,18 +158,27 @@ class FaceDatabase:
                 
                 for row in cursor.fetchall():
                     face_id, emb_json = row
-                    db_embedding = np.array(json.loads(emb_json))
-                    
-                    # Calculate cosine similarity
-                    similarity = np.dot(embedding, db_embedding) / (
-                        np.linalg.norm(embedding) * np.linalg.norm(db_embedding))
-                    
-                    if similarity > best_sim:
-                        best_sim = similarity
-                        best_match = face_id
-                        # Early exit for perfect match
-                        if best_sim > 0.999:
-                            break
+                    try:
+                        db_embedding = np.array(json.loads(emb_json), dtype=np.float32)
+                        
+                        # Ensure embeddings are normalized
+                        db_norm = np.linalg.norm(db_embedding)
+                        if db_norm > 0:
+                            db_embedding = db_embedding / db_norm
+                        
+                        # Calculate cosine similarity
+                        similarity = np.dot(embedding, db_embedding)
+                        
+                        # Debug output
+                       
+                        if similarity > best_sim:
+                            best_sim = similarity
+                            best_match = face_id
+                            if best_sim > 0.99:  # Near-perfect match
+                                break
+                    except Exception as e:
+                        self.logger.error(f"Error comparing with face {face_id}: {str(e)}")
+                        continue
                 
                 return best_match, best_sim
         except Exception as e:

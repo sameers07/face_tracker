@@ -3,6 +3,8 @@ import numpy as np
 import logging
 from pathlib import Path
 import warnings
+import cv2
+
 warnings.filterwarnings("ignore", message="model ignore: .*")
 
 def resolve_path(path_str):
@@ -11,85 +13,76 @@ def resolve_path(path_str):
     if path.is_absolute():
         return path
     
-    # Get project root (face_tracker directory)
     project_root = Path(__file__).resolve().parent.parent
-    
-    # Handle paths starting with ../
     if path_str.startswith("../"):
         return project_root / path_str[3:]
-    
     return project_root / path_str
 
 class FaceRecognizer:
     def __init__(self, config):
         self.logger = logging.getLogger('FaceRecognizer')
         self.config = config
+        self.min_face_size = config.get('min_face_size', 64)
         
-        # Configure model path
-        model_path = resolve_path(self.config['model_path'])
-        
-        # Initialize model
         try:
+            model_root = resolve_path(config['model_path'])
+            self.logger.info(f"Loading model from: {model_root}/{config['model']}")
+            
             self.model = insightface.app.FaceAnalysis(
-                name=self.config['model'],
-                root=str(model_path.parent),
+                name=config['model'],
+                root=str(model_root),
                 allowed_modules=['detection', 'recognition'],
                 providers=['CPUExecutionProvider']
             )
             
-            # Configure GPU/CPU
-            gpu_id = self.config.get('gpu_id', 0)
-            if gpu_id >= 0:
-                try:
-                    import torch
-                    if not torch.cuda.is_available():
-                        self.logger.warning("CUDA not available, using CPU")
-                        gpu_id = -1
-                except ImportError:
-                    gpu_id = -1
-            
-            # Prepare model
-            det_size = tuple(self.config.get('input_size', [640, 640]))
+            gpu_id = config.get('gpu_id', -1)
+            det_size = tuple(config.get('input_size', [640, 640]))
             self.model.prepare(ctx_id=gpu_id, det_size=det_size)
             
-            self.logger.info(f"FaceRecognizer initialized with model: {model_path}")
-            if gpu_id < 0:
-                self.logger.info("Using CPU for face recognition")
+            self.logger.info(f"Recognizer ready (min face size: {self.min_face_size}px)")
         except Exception as e:
             self.logger.error(f"Model initialization failed: {str(e)}")
             raise
 
     def get_embedding(self, face_image: np.ndarray) -> np.ndarray:
-        """Extract normalized face embedding"""
+        """Extract face embedding with robust preprocessing"""
         if face_image is None or face_image.size == 0:
             self.logger.warning("Empty face image received")
             return None
-            
-        # Validate input
-        if len(face_image.shape) != 3 or face_image.shape[2] != 3:
-            self.logger.warning("Face image must be RGB format")
+
+        # Convert color spaces
+        if len(face_image.shape) == 2:
+            face_image = cv2.cvtColor(face_image, cv2.COLOR_GRAY2RGB)
+        elif face_image.shape[2] == 4:
+            face_image = face_image[:, :, :3]
+
+        # Validate size
+        h, w = face_image.shape[:2]
+        if w < self.min_face_size or h < self.min_face_size:
+            self.logger.debug(f"Face too small: {w}x{h} (min {self.min_face_size}px)")
             return None
-            
-        min_size = self.config.get('min_face_size', 20)
-        if face_image.shape[0] < min_size or face_image.shape[1] < min_size:
-            self.logger.debug(f"Face image too small: {face_image.shape}")
-            return None
-            
+
         try:
-            # Process face
+            # Resize large faces
+            max_size = 640
+            if w > max_size or h > max_size:
+                scale = max_size / max(w, h)
+                face_image = cv2.resize(face_image, (0,0), fx=scale, fy=scale)
+                self.logger.debug(f"Resized from {w}x{h}")
+
+            # Extract embedding
             faces = self.model.get(face_image)
             if not faces:
-                self.logger.debug("No faces detected in crop")
+                self.logger.debug("No faces found in processed crop")
                 return None
-                
-            # Get primary face embedding
-            embedding = faces[0].embedding
-            norm = np.linalg.norm(embedding)
-            if norm < 1e-6:
-                self.logger.warning("Zero-norm embedding detected")
-                return None
-                
-            return embedding / norm
+
+            embedding = faces[0].embedding.astype(np.float32)
+            norm = np.linalg.norm(embedding) + 1e-10
+            normalized = embedding / norm
+            
+            self.logger.debug(f"Embedding extracted (norm: {norm:.2f})")
+            return normalized
+            
         except Exception as e:
             self.logger.error(f"Embedding extraction failed: {str(e)}")
             return None

@@ -123,8 +123,7 @@ class FaceLogger:
                 img_path = date_dir / img_filename
                 success = cv2.imwrite(
                     str(img_path), 
-                    face_image, 
-                    [cv2.IMWRITE_JPEG_QUALITY, self.config.get('image_quality', 90)]
+                    face_image,
                 )
                 if not success:
                     self.logger.warning(f"Failed to save image: {img_path}")

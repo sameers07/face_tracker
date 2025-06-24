@@ -19,13 +19,9 @@ def resolve_path(path_str):
     if path.is_absolute():
         return path
     
-    # Get project root (face_tracker directory)
     project_root = Path(__file__).resolve().parent.parent
-    
-    # Handle paths starting with ../
     if path_str.startswith("../"):
         return project_root / path_str[3:]
-    
     return project_root / path_str
 
 class FaceTrackingSystem:
@@ -36,10 +32,10 @@ class FaceTrackingSystem:
             with open(config_file) as f:
                 self.config = json.load(f)
         except Exception as e:
-            print(f"Config loading failed: {str(e)}")
+            logging.error(f"Config loading failed: {str(e)}")
             sys.exit(1)
         
-        # Initialize logging first
+        # Initialize logging
         self.logger = self._init_logging()
         
         # Initialize modules
@@ -51,7 +47,7 @@ class FaceTrackingSystem:
         
         # State management
         self.frame_count = 0
-        self.active_visitors = {}  # {track_id: (db_face_id, last_seen)}
+        self.active_visitors = {}
         self.unique_visitors = set()
         self.entry_logged = set()
         self.exit_logged = set()
@@ -76,12 +72,12 @@ class FaceTrackingSystem:
             encoding='utf-8'
         )
         
-        # Create formatters and add to handlers
+        # Create formatters
         formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         c_handler.setFormatter(formatter)
         f_handler.setFormatter(formatter)
         
-        # Add handlers to the logger
+        # Add handlers
         logger.addHandler(c_handler)
         logger.addHandler(f_handler)
         
@@ -92,29 +88,22 @@ class FaceTrackingSystem:
         start_time = time.time()
         self.frame_count += 1
         
-        # Skip frames if configured
         if self._should_skip_frame():
             return frame
         
-        # Detect faces
+        # Detect and process faces
         face_boxes = self.detector.detect(frame)
         face_images = []
         embeddings = []
         valid_boxes = []
-        
-        # Process each detection
+
         for box in face_boxes:
-            if len(box) == 5:
-               _, x1, y1, x2, y2 = map(int, box)
-            else:
-               x1, y1, x2, y2 = map(int, box)
+            x1, y1, x2, y2 = map(int, box)
             face_img = frame[y1:y2, x1:x2]
             
-            # Validate face crop
             if face_img.size == 0 or min(face_img.shape[:2]) < 10:
                 continue
                 
-            # Get embedding
             embedding = self.recognizer.get_embedding(face_img)
             if embedding is not None:
                 face_images.append(face_img)
@@ -123,8 +112,6 @@ class FaceTrackingSystem:
         
         # Update tracker
         tracks = self.tracker.update(valid_boxes, embeddings)
-        
-        # Process tracks
         current_time = time.time()
         current_tracks = set()
         
@@ -132,66 +119,57 @@ class FaceTrackingSystem:
             x1, y1, x2, y2 = map(int, track['position'])
             face_img = frame[y1:y2, x1:x2]
             
-            # Get or assign face ID
             if track_id not in self.active_visitors:
-                # New track - process entry
                 db_face_id, is_new = self._register_or_recognize_face(track['embedding'])
+                if db_face_id is None:
+                    continue
+                    
                 self.active_visitors[track_id] = (db_face_id, current_time)
                 self.unique_visitors.add(db_face_id)
                 
-                # Log entry if not already logged
-                if db_face_id not in self.entry_logged:
-                    self._log_face_event(db_face_id, 'entry', face_img)
-                    self.entry_logged.add(db_face_id)
+                event_type = 'entry' if is_new else 're-entry'
+                self._log_face_event(db_face_id, event_type, face_img)
             else:
-                # Existing track - update last seen
-                db_face_id, _ = self.active_visitors[track_id]
+                db_face_id, last_seen = self.active_visitors[track_id]
                 self.active_visitors[track_id] = (db_face_id, current_time)
+                
+                if (current_time - last_seen) > 30:
+                    self._log_face_event(db_face_id, 'update', face_img)
             
             current_tracks.add(track_id)
             
-            # Visualize
-            color = (0, 255, 0)  # Green for recognized
-            if db_face_id not in self.entry_logged:
-                color = (0, 0, 255)  # Red for new
+            # Visualization
+            color = (0, 255, 0) if db_face_id in self.entry_logged else (0, 0, 255)
             cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
             cv2.putText(frame, f"ID: {db_face_id}", (x1, y1-10), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
         
-        # Check for exits
+        # Handle exits
         exited_tracks = set(self.active_visitors.keys()) - current_tracks
         for track_id in exited_tracks:
             db_face_id, last_seen = self.active_visitors[track_id]
-            
-            # Only log exit if not already logged and face was visible recently
-            if (db_face_id not in self.exit_logged and 
-                (current_time - last_seen) < self.config['tracking']['max_age']):
+            if (current_time - last_seen) < self.config['tracking']['max_age']:
                 self._log_face_event(db_face_id, 'exit')
                 self.exit_logged.add(db_face_id)
-            
             del self.active_visitors[track_id]
         
-        # Display visitor count
-        cv2.putText(frame, f"Unique Visitors: {len(self.unique_visitors)}", (10, 60), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+        # Display info
+        cv2.putText(frame, f"Visitors: {len(self.unique_visitors)}", (10, 60), 
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
         
-        # Log performance
-        proc_time = time.time() - start_time
-        if proc_time > 0:
-            fps = 1 / proc_time
-            cv2.putText(frame, f"FPS: {fps:.1f}", (10, 30), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+        fps = 1 / (time.time() - start_time) if (time.time() - start_time) > 0 else 0
+        cv2.putText(frame, f"FPS: {fps:.1f}", (10, 30), 
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
         
         self.last_processed = time.time()
         return frame
 
     def _should_skip_frame(self):
-        """Adaptive frame skipping based on system load"""
+        """Adaptive frame skipping"""
         base_skip = self.config['detection'].get('skip_frames', 0)
         if base_skip == 0:
             return False
             
-        # Increase skip frames if processing is falling behind
         processing_time = time.time() - self.last_processed
         expected_time = 1.0 / self.config['system'].get('target_fps', 25)
         
@@ -203,104 +181,87 @@ class FaceTrackingSystem:
         return self.frame_count % self.current_skip != 0
 
     def _register_or_recognize_face(self, embedding):
-        """Find similar face or register new one"""
-        # Check database for matching face
+        """Handle face registration/recognition"""
+        if embedding is None:
+            return None, False
+
         db_face_id, similarity = self.database.find_similar_face(
             embedding,
             self.config['recognition']['similarity_threshold']
         )
-        
-        # Register new face if no match found
+
         if db_face_id is None:
-            db_face_id = self.database.register_face(embedding)
-            return db_face_id, True
-        
+            try:
+                db_face_id = self.database.register_face(embedding)
+                if db_face_id:
+                    return db_face_id, True
+            except Exception as e:
+                self.logger.error(f"Face registration failed: {str(e)}")
+                return None, False
+
         return db_face_id, False
 
     def _log_face_event(self, face_id, event_type, face_image=None):
-        """Log face event with proper handling"""
+        """Log face events"""
         metadata = {
             "session_id": self.session_id,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
+            "event_type": event_type
         }
         
-        # For exit events, we don't have a current face image
         img_path = None
-        if event_type == 'entry' and face_image is not None:
-            img_path = self.face_logger.log_event(
-                face_id, event_type, face_image, metadata
-            )
-        else:
-            self.face_logger.log_event(
-                face_id, event_type, metadata=metadata
-            )
+        if face_image is not None and event_type != 'exit':
+            try:
+                img_path = self.face_logger.log_event(
+                    face_id, event_type, face_image, metadata
+                )
+            except Exception as e:
+                self.logger.error(f"Failed to save face image: {str(e)}")
         
-        # Save to database
-        self.database.log_event(face_id, event_type, img_path)
-        
+        self.database.log_event(face_id, event_type, img_path, metadata)
         self.logger.info(f"Logged {event_type} event for face {face_id}")
 
     def process_video(self, video_path=None):
-        """Process video file or stream"""
+        """Process video file"""
         video_config = self.config.get('video', {})
         input_path = resolve_path(video_path or video_config.get('input_path'))
         output_path = resolve_path(video_config.get('output_path'))
-        max_duration = video_config.get('max_duration', 300)
         
         if not input_path.exists():
             self.logger.error(f"Input video not found: {input_path}")
             return
             
         try:
-            # Open video source
             cap = cv2.VideoCapture(str(input_path))
             if not cap.isOpened():
-                self.logger.error(f"Could not open video source: {input_path}")
+                self.logger.error(f"Could not open video: {input_path}")
                 return
                 
-            # Get video properties
             fps = cap.get(cv2.CAP_PROP_FPS)
             width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
             height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
             
-            # Setup output writer
             writer = None
             if output_path:
                 codec = video_config.get('output_codec', 'mp4v')
                 fourcc = cv2.VideoWriter_fourcc(*codec)
                 writer = cv2.VideoWriter(str(output_path), fourcc, fps, (width, height))
-                if not writer.isOpened():
-	                self.logger.error(f"Failed to open video writer with codec {codec}")
-	                writer = None
-            start_time = time.time()
-            frame_count = 0
             
-            # Processing loop
             while cap.isOpened():
                 ret, frame = cap.read()
                 if not ret:
                     break
                     
-                # Process frame
                 processed_frame = self.process_frame(frame)
-                frame_count += 1
                 
-                # Write output
                 if writer:
                     writer.write(processed_frame)
                 
-                # Display
                 cv2.imshow('Face Tracker', processed_frame)
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
-                    
-                # Check duration limit
-                if time.time() - start_time > max_duration:
-                    self.logger.info("Reached maximum processing duration")
-                    break
             
-            # Log final visitor count
-            self.logger.info(f"Session completed. Total unique visitors: {len(self.unique_visitors)}")
+            self.logger.info(f"Session completed. Unique visitors: {len(self.unique_visitors)}")
             
         except Exception as e:
             self.logger.error(f"Video processing failed: {str(e)}")
@@ -311,81 +272,11 @@ class FaceTrackingSystem:
             cv2.destroyAllWindows()
             self.database.end_session()
 
-    def process_rtsp(self, rtsp_url=None):
-        """Process RTSP stream with robust reconnection"""
-        rtsp_config = self.config.get('rtsp', {})
-        url = rtsp_url or rtsp_config.get('url')
-        max_retries = rtsp_config.get('max_retries', 5)
-        timeout = rtsp_config.get('timeout', 10)
-        
-        if not url:
-            self.logger.error("No RTSP URL specified")
-            return
-            
-        retry_count = 0
-        retry_delay = 5
-        
-        while retry_count < max_retries:
-            try:
-                self.logger.info(f"Connecting to RTSP stream: {url}")
-                cap = cv2.VideoCapture(url)
-                cap.set(cv2.CAP_PROP_BUFFERSIZE, 3)
-                cap.set(cv2.CAP_PROP_OPEN_TIMEOUT_MSEC, timeout * 1000)
-                
-                if not cap.isOpened():
-                    raise ConnectionError("Failed to open stream")
-                    
-                self.logger.info("RTSP stream connected")
-                retry_count = 0
-                retry_delay = 5
-                
-                # Processing loop
-                while cap.isOpened():
-                    start_time = time.time()
-                    ret, frame = cap.read()
-                    if not ret:
-                        self.logger.warning("Frame read error, reconnecting...")
-                        break
-                        
-                    # Process frame
-                    processed_frame = self.process_frame(frame)
-                    
-                    # Display
-                    cv2.imshow('Face Tracker', processed_frame)
-                    
-                    # Check for quit
-                    if cv2.waitKey(1) & 0xFF == ord('q'):
-                        cap.release()
-                        cv2.destroyAllWindows()
-                        return
-                    
-                    # Maintain FPS
-                    proc_time = time.time() - start_time
-                    wait_time = max(1, int((1/30 - proc_time)*1000))
-                    if cv2.waitKey(wait_time) & 0xFF == ord('q'):
-                        break
-                
-                cap.release()
-                
-            except Exception as e:
-                self.logger.error(f"RTSP error: {str(e)}")
-            
-            # Exponential backoff for reconnection
-            retry_count += 1
-            self.logger.info(f"Retrying in {retry_delay} seconds ({retry_count}/{max_retries})")
-            time.sleep(retry_delay)
-            retry_delay = min(retry_delay * 2, 60)  # Cap at 60 seconds
-            
-        self.logger.error("Max retries exceeded, giving up")
-        self.database.end_session()
-
 if __name__ == '__main__':
     system = FaceTrackingSystem()
     
-    # Process video if configured
     if "input_path" in system.config["video"] and system.config["video"]["input_path"]:
         system.process_video()
     
-    # Process RTSP if enabled
     if system.config["rtsp"].get("enabled", False):
         system.process_rtsp()

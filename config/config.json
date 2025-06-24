@@ -6,17 +6,19 @@
     },
     "detection": {
         "model": "../models/yolov8n-face.pt",
-        "skip_frames": 2,
-        "confidence_threshold": 0.3,
-        "iou_threshold": 0.5
+        "model_path": "../models",
+        "skip_frames": 1,
+        "confidence_threshold": 0.25,
+        "iou_threshold": 0.4,
+        "min_face_size": 40
     },
     "recognition": {
         "model": "buffalo_l",
-        "model_path": "../models/insightface/",
-        "gpu_id": 0,
-        "input_size": [640, 640],
-        "similarity_threshold": 0.6,
-        "min_face_size": 20,
+        "model_path": "../models/insightface",
+        "gpu_id": -1,
+        "input_size": [320, 320],
+        "similarity_threshold": 0.75,
+        "min_face_size": 80,
         "batch_size": 8
     },
     "tracking": {
@@ -50,7 +52,6 @@
     "logging": {
         "log_dir": "../logs",
         "log_level": "INFO",
-        "image_quality": 90,
         "max_log_size_mb": 100,
         "retention_days": 30,
         "console_output": true
