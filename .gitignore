@@ -1,52 +1,25 @@
-# --------------------------
-# 🐍 Python / Environment Junk
-# --------------------------
-__pycache__/
-*.pyc
-*.pyo
-*.swp
-*.swo
-venv/
-
-# --------------------------
-# 🚫 Model Files (keep folders, ignore contents)
-# --------------------------
+# Large model & data files
 models/**/*.onnx
 models/**/*.zip
 models/**/*.pt
+models/yolov8n-face.pt
 
-# Allow model folders & structure
-!models/
-!models/insightface/
-!models/insightface/buffalo_l/
-!models/insightface/buffalo_l/.gitkeep
-
-# --------------------------
-# 🚫 Logs (ignore contents, keep folders)
-# --------------------------
-logs/*.log
+# Logs and images
 logs/**/*.log
 logs/**/*.jpg
 logs/**/*.jpeg
-logs/**/*.png
+logs/**/*.avi
 
-# Allow log structure
-!logs/
-!logs/entries/
-!logs/entries/**/
-!logs/entries/.gitkeep
-
-# --------------------------
-# 🚫 Database file (but keep folder)
-# --------------------------
+# Database and videos
 database/faces.db
-!database/
-!database/.gitkeep
+videoDatasets/*.mp4
 
-# --------------------------
-# 🚫 Video input (optional)
-# --------------------------
-videoDatasets/input.mp4
-!videoDatasets/
-!videoDatasets/.gitkeep
+# Python junk
+__pycache__/
+*.pyc
+*.swp
+*.swo
+
+# Virtual environment
+venv/
 
