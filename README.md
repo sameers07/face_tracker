@@ -211,7 +211,7 @@ cv2.VideoCapture("rtsp://<your-camera-url>")
 
 ## 📽️ Demo Video
 
-🎬 [Add your Loom or YouTube link here]
+🎬 [https://www.loom.com/share/391860fd72f649c4868e8c016bd38522?sid=226dbc5e-7868-40b1-b9bd-cd7bb31bca9d]
 
 ---
 
