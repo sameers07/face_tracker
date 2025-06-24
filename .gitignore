@@ -1,0 +1,23 @@
+# Ignore logs and outputs
+logs/
+*.log
+*.jpg
+
+# Ignore database file
+database/faces.db
+
+# Ignore heavy videos
+videoDatasets/input.mp4
+*.mp4
+*.avi
+*.mkv
+
+# Ignore large models (they can be re-downloaded)
+models/yolov8n-face.pt
+models/insightface/buffalo_l/
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+venv/
