@@ -1,23 +1,18 @@
-# Ignore logs and outputs
-logs/
-*.log
-*.jpg
-
-# Ignore database file
-database/faces.db
-
-# Ignore heavy videos
-videoDatasets/input.mp4
-*.mp4
-*.avi
-*.mkv
-
-# Ignore large models (they can be re-downloaded)
-models/yolov8n-face.pt
-models/insightface/buffalo_l/
-
-# Python bytecode
+# Python venv and cache
+venv/
 __pycache__/
 *.pyc
 
-venv/
+# Editor swap files
+*.swp
+*.swo
+
+# Logs
+!logs/*.log
+!logs/entries/**/*.jpg
+!logs/entries/**/*.jpeg
+!logs/entries/**/*.png
+
+# Optional - ignore DB only if it's large or you prefer to regenerate
+# database/faces.db
+

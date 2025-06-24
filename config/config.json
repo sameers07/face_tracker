@@ -1,0 +1,59 @@
+{
+    "system": {
+        "device": "auto",
+        "max_threads": 4,
+        "target_fps": 25
+    },
+    "detection": {
+        "model": "../models/yolov8n-face.pt",
+        "skip_frames": 2,
+        "confidence_threshold": 0.3,
+        "iou_threshold": 0.5
+    },
+    "recognition": {
+        "model": "buffalo_l",
+        "model_path": "../models/insightface/",
+        "gpu_id": 0,
+        "input_size": [640, 640],
+        "similarity_threshold": 0.6,
+        "min_face_size": 20,
+        "batch_size": 8
+    },
+    "tracking": {
+        "max_age": 30,
+        "appearance_weight": 0.7,
+        "reid_threshold": 0.5,
+        "kalman_filter": {
+            "enabled": true,
+            "process_noise": 0.1,
+            "measurement_noise": 1.0
+        }
+    },
+    "video": {
+        "input_path": "../videoDatasets/input.mp4",
+        "output_path": "../logs/output.avi",
+        "max_duration": 300,
+        "output_codec": "mp4v",
+        "output_fps":15
+    },
+    "rtsp": {
+        "enabled": false,
+        "url": "rtsp://example.com/stream",
+        "max_retries": 5,
+        "timeout": 10
+    },
+    "database": {
+        "path": "../database/faces.db",
+        "auto_cleanup_days": 30,
+        "backup_interval_hours": 24
+    },
+    "logging": {
+        "log_dir": "../logs",
+        "log_level": "INFO",
+        "image_quality": 90,
+        "max_log_size_mb": 100,
+        "retention_days": 30,
+        "console_output": true
+    },
+    "version": "1.0.0"
+}
