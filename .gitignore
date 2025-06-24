@@ -15,4 +15,8 @@ __pycache__/
 
 # Optional - ignore DB only if it's large or you prefer to regenerate
 # database/faces.db
-
+models/**/buffalo_l.zip
+models/**/w600k_r50.onnx
+models/**/1k3d68.onnx
+models/models/
+models/insightface/models/
