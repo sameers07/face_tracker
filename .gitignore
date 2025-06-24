@@ -1,22 +1,52 @@
-# Python venv and cache
-venv/
+# --------------------------
+# 🐍 Python / Environment Junk
+# --------------------------
 __pycache__/
 *.pyc
-
-# Editor swap files
+*.pyo
 *.swp
 *.swo
+venv/
 
-# Logs
-!logs/*.log
-!logs/entries/**/*.jpg
-!logs/entries/**/*.jpeg
-!logs/entries/**/*.png
+# --------------------------
+# 🚫 Model Files (keep folders, ignore contents)
+# --------------------------
+models/**/*.onnx
+models/**/*.zip
+models/**/*.pt
 
-# Optional - ignore DB only if it's large or you prefer to regenerate
-# database/faces.db
-models/**/buffalo_l.zip
-models/**/w600k_r50.onnx
-models/**/1k3d68.onnx
-models/models/
-models/insightface/models/
+# Allow model folders & structure
+!models/
+!models/insightface/
+!models/insightface/buffalo_l/
+!models/insightface/buffalo_l/.gitkeep
+
+# --------------------------
+# 🚫 Logs (ignore contents, keep folders)
+# --------------------------
+logs/*.log
+logs/**/*.log
+logs/**/*.jpg
+logs/**/*.jpeg
+logs/**/*.png
+
+# Allow log structure
+!logs/
+!logs/entries/
+!logs/entries/**/
+!logs/entries/.gitkeep
+
+# --------------------------
+# 🚫 Database file (but keep folder)
+# --------------------------
+database/faces.db
+!database/
+!database/.gitkeep
+
+# --------------------------
+# 🚫 Video input (optional)
+# --------------------------
+videoDatasets/input.mp4
+!videoDatasets/
+!videoDatasets/.gitkeep
+
