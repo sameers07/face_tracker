@@ -17,8 +17,8 @@
         "model_path": "../models/insightface",
         "gpu_id": -1,
         "input_size": [320, 320],
-        "similarity_threshold": 0.75,
-        "min_face_size": 80,
+        "similarity_threshold": 0.6,
+        "min_face_size": 40,
         "batch_size": 8
     },
     "tracking": {

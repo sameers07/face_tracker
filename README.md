@@ -107,46 +107,58 @@ Make sure this path matches what's configured in your `config/config.json`.
 
 ```json
 {
-  "detection": {
-    "model": "models/yolov8n-face.pt",
-    "confidence_threshold": 0.5,
-    "iou_threshold": 0.5,
-    "skip_frames": 5
-  },
-  "recognition": {
-    "model": "buffalo_l",
-    "model_path": "models/insightface/",
-    "input_size": [640, 640],
-    "similarity_threshold": 0.5
-  },
-  "tracking": {
-    "max_age": 30,
-    "appearance_weight": 0.7,
-    "kalman_filter": {
-      "enabled": true,
-      "process_noise": 0.1,
-      "measurement_noise": 1.0
-    }
-  },
-  "video": {
-    "input_path": "videoDatasets/input.mp4",
-    "output_path": "logs/output.avi",
-    "output_codec": "mp4v",
-    "max_duration": 300
-  },
-  "rtsp": {
-    "enabled": false,
-    "url": "",
-    "timeout": 10,
-    "max_retries": 5
-  },
-  "logging": {
-    "log_dir": "logs/",
-    "log_level": "INFO"
-  },
-  "system": {
-    "target_fps": 25
-  }
+   "detection": {
+        "model": "../models/yolov8n-face.pt",
+        "model_path": "../models",
+        "skip_frames": 1,
+        "confidence_threshold": 0.25,
+        "iou_threshold": 0.4,
+        "min_face_size": 40
+    },
+    "recognition": {
+        "model": "buffalo_l",
+        "model_path": "../models/insightface",
+        "gpu_id": -1,
+        "input_size": [320, 320],
+        "similarity_threshold": 0.6,
+        "min_face_size": 40,
+        "batch_size": 8
+    },
+    "tracking": {
+        "max_age": 30,
+        "appearance_weight": 0.7,
+        "reid_threshold": 0.5,
+        "kalman_filter": {
+            "enabled": true,
+            "process_noise": 0.1,
+            "measurement_noise": 1.0
+        }
+    },
+    "video": {
+        "input_path": "../videoDatasets/input.mp4",
+        "output_path": "../logs/output.avi",
+        "max_duration": 300,
+        "output_codec": "mp4v",
+        "output_fps":15
+    },
+    "rtsp": {
+        "enabled": false,
+        "url": "rtsp://example.com/stream",
+        "max_retries": 5,
+        "timeout": 10
+    },
+    "database": {
+        "path": "../database/faces.db",
+        "auto_cleanup_days": 30,
+        "backup_interval_hours": 24
+    },
+    "logging": {
+        "log_dir": "../logs",
+        "log_level": "INFO",
+        "max_log_size_mb": 100,
+        "retention_days": 30,
+        "console_output": true
+    },
 }
 ```
 
