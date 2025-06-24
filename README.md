@@ -34,7 +34,14 @@ face_tracker/
 │   ├── database.py
 │   └── custom_logger.py
 ├── models/
-│   └── yolov8n-face.pt       # Downloaded manually
+│   ├── yolov8n-face.pt
+│   └── insightface/
+│       └── buffalo_l/
+│           ├── 1k3d68.onnx
+│           ├── 2d106det.onnx
+│           ├── det_10g.onnx
+│           ├── genderage.onnx
+│           └── w600k_r50.onnx       # Downloaded manually
 ├── videoDatasets/
 │   └── input.mp4             # Not tracked in Git
 ├── database/
